@@ -2,20 +2,17 @@ const { Model, DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const connection = require('../lib/db');
 
-class Site extends Model { }
+class Application extends Model { }
 
-// TODO: vérifier ça
-Site.init({
+Application.init({
     name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    baseUrl: {
-        type: DataTypes.STRING,
+    allowedUrls: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
         allowNull: false,
-        validate: {
-            isUrl: 'Base URL invalid',
-        },
+        defaultValue: [],
     },
     appId: {
         type: DataTypes.UUID,
@@ -26,11 +23,6 @@ Site.init({
     appSecret: {
         type: DataTypes.STRING,
         allowNull: true,
-    },
-    corsOrigins: {
-        type: DataTypes.ARRAY(DataTypes.STRING),
-        allowNull: false,
-        defaultValue: [],
     },
     ownerId: {
         type: DataTypes.INTEGER,
@@ -43,22 +35,22 @@ Site.init({
     underscored: false,
 });
 
-Site.addHook('beforeCreate', (site) => {
-    if (site.appSecret) {
-        site.appSecret = bcrypt.hashSync(site.appSecret, bcrypt.genSaltSync(10));
+Application.addHook('beforeCreate', (application) => {
+    if (application.appSecret) {
+        application.appSecret = bcrypt.hashSync(application.appSecret, bcrypt.genSaltSync(10));
     }
 });
 
-Site.addHook('beforeUpdate', (site, options) => {
-    if (options.fields.includes('appSecret') && site.appSecret) {
-        site.appSecret = bcrypt.hashSync(site.appSecret, bcrypt.genSaltSync(10));
+Application.addHook('beforeUpdate', (application, options) => {
+    if (options.fields.includes('appSecret')) {
+        application.appSecret = bcrypt.hashSync(application.appSecret, bcrypt.genSaltSync(10));
     }
 });
 
-Site.prototype.toJSON = function () {
+Application.prototype.toJSON = function () {
     const values = { ...this.get() };
     delete values.appSecret;
     return values;
 };
 
-module.exports = Site;
+module.exports = Application;
