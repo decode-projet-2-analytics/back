@@ -2,27 +2,31 @@ const { Model, DataTypes, Op } = require('sequelize');
 const connection = require('../lib/db');
 const bcrypt = require('bcryptjs');
 
-class User extends Model {
-    static countDecodeUser() {
-        return User.count({
-            where: {
-                email: {
-                    [Op.iLike]: '%ecole-decode.fr'
-                }
-            }
-        })
-    }
-
-    static nativeCountDecodeUser() {
-        return connection.query(`SELECT count(*) from "user" where email ilike '%ecole-decode.fr'`);
-
-    }
-}
+class User extends Model { }
 
 User.init({
     lastname: DataTypes.STRING,
     firstname: DataTypes.STRING,
     birthDate: DataTypes.DATE,
+    role: {
+        type: DataTypes.ENUM('Admin', 'Webmaster'),
+        allowNull: false,
+        defaultValue: 'Webmaster',
+    },
+    companyName: DataTypes.STRING,
+    kbisDocument: DataTypes.STRING,
+    contactPhone: DataTypes.STRING,
+    websiteUrl: {
+        type: DataTypes.STRING,
+        validate: {
+            isUrl: 'Website URL invalid',
+        },
+    },
+    status: {
+        type: DataTypes.ENUM('pending', 'validated', 'rejected'),
+        allowNull: false,
+        defaultValue: 'pending',
+    },
     email: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -40,11 +44,9 @@ User.init({
     }
 }, {
     sequelize: connection,
-    //tableName: '"user"',
-    //modelName: "MyUser",
-    timestamps: true, // (default) add "createdAt", "updateAt",
-    paranoid: false, // true = soft-delete,
-    underscored: false // true = Change "Users" to "users" and "createdAt" to "created_at",
+    timestamps: true,
+    paranoid: false,
+    underscored: false,
 });
 
 User.addHook('beforeCreate', (user, options) => {
@@ -52,9 +54,14 @@ User.addHook('beforeCreate', (user, options) => {
 });
 
 User.addHook('beforeUpdate', (user, options) => {
-    // if (user.changed('password'))
     if (options.fields.includes('password'))
         user.password = bcrypt.hashSync(user.password, bcrypt.genSaltSync(10));
 })
+
+User.prototype.toJSON = function () {
+    const values = { ...this.get() };
+    delete values.password;
+    return values;
+};
 
 module.exports = User;
