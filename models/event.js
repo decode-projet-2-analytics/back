@@ -2,7 +2,7 @@ const mongoose = require('../lib/mongo');
 
 // TODO: vérifier ça
 const eventSchema = new mongoose.Schema({
-    siteId: {
+    applicationId: {
         type: String,
         required: true,
         index: true,

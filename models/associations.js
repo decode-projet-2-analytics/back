@@ -1,13 +1,13 @@
 const User = require('./user');
-const Site = require('./site');
+const Application = require('./application');
 const Tag = require('./tag');
 const Tunnel = require('./tunnel');
 
-User.hasMany(Site, { foreignKey: 'ownerId', as: 'sites' });
-Site.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+User.hasMany(Application, { foreignKey: 'ownerId', as: 'applications' });
+Application.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 
-Site.hasMany(Tag, { foreignKey: 'siteId', as: 'tags' });
-Tag.belongsTo(Site, { foreignKey: 'siteId', as: 'site' });
+Application.hasMany(Tag, { foreignKey: 'applicationId', as: 'tags' });
+Tag.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
-Site.hasMany(Tunnel, { foreignKey: 'siteId', as: 'tunnels' });
-Tunnel.belongsTo(Site, { foreignKey: 'siteId', as: 'site' });
+Application.hasMany(Tunnel, { foreignKey: 'applicationId', as: 'tunnels' });
+Tunnel.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });

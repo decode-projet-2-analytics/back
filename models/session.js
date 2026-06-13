@@ -13,7 +13,7 @@ const replayActionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const sessionSchema = new mongoose.Schema({
-    siteId: {
+    applicationId: {
         type: String,
         required: true,
         index: true,

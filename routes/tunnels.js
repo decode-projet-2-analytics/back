@@ -8,8 +8,8 @@ module.exports = createCrudRouter({
     auth: checkAuth(),
     methods: ['list', 'get', 'create', 'patch', 'delete'],
     allowedFields: {
-        create: ['comment', 'tagIds', 'siteId'],
+        create: ['comment', 'tagIds', 'applicationId'],
         patch: ['comment'],
     },
-    queryFields: ['siteId'],
+    queryFields: ['applicationId'],
 });

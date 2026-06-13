@@ -1,6 +1,6 @@
 const connection = require('./lib/db');
 require('./models/user');
-require('./models/site');
+require('./models/application');
 require('./models/tag');
 require('./models/tunnel');
 require('./models/associations');

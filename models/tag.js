@@ -16,7 +16,7 @@ Tag.init({
         allowNull: false,
         defaultValue: '',
     },
-    siteId: {
+    applicationId: {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
