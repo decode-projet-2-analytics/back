@@ -5,6 +5,12 @@ const connection = require('../lib/db');
 class Application extends Model { }
 
 Application.init({
+    appId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        unique: true,
+        defaultValue: DataTypes.UUIDV4,
+    },
     name: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -13,12 +19,6 @@ Application.init({
         type: DataTypes.ARRAY(DataTypes.STRING),
         allowNull: false,
         defaultValue: [],
-    },
-    appId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        unique: true,
-        defaultValue: DataTypes.UUIDV4,
     },
     appSecret: {
         type: DataTypes.STRING,
