@@ -3,7 +3,6 @@ const connection = require('../lib/db');
 
 class Tag extends Model { }
 
-// TODO: vérifier ça
 Tag.init({
     tagId: {
         type: DataTypes.UUID,
@@ -18,6 +17,10 @@ Tag.init({
     },
     applicationId: {
         type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    tunnelId: {
+        type: DataTypes.UUID,
         allowNull: false,
     },
 }, {

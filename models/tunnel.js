@@ -3,8 +3,13 @@ const connection = require('../lib/db');
 
 class Tunnel extends Model { }
 
-// TODO: vérifier ça
 Tunnel.init({
+    tunnelId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        unique: true,
+        defaultValue: DataTypes.UUIDV4,
+    },
     comment: {
         type: DataTypes.TEXT,
         allowNull: false,
