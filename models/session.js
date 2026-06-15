@@ -1,45 +1,37 @@
-const mongoose = require('../lib/mongo');
+const { Model, DataTypes } = require('sequelize');
+const connection = require('../lib/db');
 
-// TODO: vérifier ça
-const replayActionSchema = new mongoose.Schema({
-    type: {
-        type: String,
-        required: true,
-    },
-    x: Number,
-    y: Number,
-    timestamp: Date,
-    target: String,
-}, { _id: false });
+class Session extends Model { }
 
-const sessionSchema = new mongoose.Schema({
-    applicationId: {
-        type: String,
-        required: true,
-        index: true,
-    },
-    sessionId: {
-        type: String,
-        required: true,
-        unique: true,
-    },
+Session.init({
     startedAt: {
-        type: Date,
-        default: Date.now,
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
     },
-    endedAt: Date,
+    endedAt: DataTypes.DATE,
     metadata: {
-        os: String,
-        location: String,
-        userAgent: String,
-        referrer: String,
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
     },
     replay: {
-        type: [replayActionSchema],
-        default: [],
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+    },
+    applicationId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
     },
 }, {
+    sequelize: connection,
     timestamps: true,
+    paranoid: false,
+    underscored: false,
+    indexes: [
+        { fields: ['applicationId'] },
+    ],
 });
 
-module.exports = mongoose.models.Session || mongoose.model('Session', sessionSchema);
+module.exports = Session;

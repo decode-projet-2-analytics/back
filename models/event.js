@@ -1,33 +1,45 @@
-const mongoose = require('../lib/mongo');
+const { Model, DataTypes } = require('sequelize');
+const connection = require('../lib/db');
 
-// TODO: vérifier ça
-const eventSchema = new mongoose.Schema({
-    applicationId: {
-        type: String,
-        required: true,
-        index: true,
-    },
-    sessionId: {
-        type: String,
-        required: true,
-        index: true,
-    },
+class Event extends Model { }
+
+Event.init({
     type: {
-        type: String,
-        required: true,
-        index: true,
+        type: DataTypes.STRING,
+        allowNull: false,
     },
     payload: {
-        type: mongoose.Schema.Types.Mixed,
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
     },
     metadata: {
-        os: String,
-        location: String,
-        userAgent: String,
-        referrer: String,
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
+    },
+    applicationId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    sessionId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    tagId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
     },
 }, {
+    sequelize: connection,
     timestamps: true,
+    paranoid: false,
+    underscored: false,
+    indexes: [
+        { fields: ['applicationId'] },
+        { fields: ['sessionId'] },
+        { fields: ['type'] },
+    ],
 });
 
-module.exports = mongoose.models.Event || mongoose.model('Event', eventSchema);
+module.exports = Event;
