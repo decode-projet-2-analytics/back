@@ -23,7 +23,7 @@ async function assertEventRelations(req, body) {
 module.exports = createCrudRouter({
     model: Event,
     auth: null, //TODO: check auth of sdk clients
-    scope: ownershipScope,
+    scope: null, //TODO: set scope of sdk
     methods: ['create', 'list', 'get'],
     allowedFields: {
         create: ['type', 'payload', 'metadata', 'applicationId', 'sessionId', 'tagId'],
