@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
+const checkAuth = require('../middlewares/check-auth');
 
 const router = new Router();
 
@@ -28,6 +29,10 @@ router.post('/login', async (req, res, next) => {
     res.json({
         token
     });
+});
+
+router.post('/logout', checkAuth(), (_req, res) => {
+    res.sendStatus(204);
 });
 
 module.exports = router;
