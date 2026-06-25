@@ -30,6 +30,32 @@ cp .env.example .env
 
 En Docker, `MONGO_URL` est déjà définie dans `compose.yml` — pas besoin de la modifier dans `.env`.
 
+## Migrations
+
+Le schéma MongoDB (collections, indexes) est versionné avec [migrate-mongo](https://github.com/seppevs/migrate-mongo). Les fichiers se trouvent dans `migrations/` ; l'historique est stocké en base dans la collection `changelog`.
+
+**Workflow local (obligatoire après un clone ou sur une base vide) :**
+
+```bash
+docker compose up -d mongo
+npm run migrate:up
+npm run dev
+```
+
+| Commande | Description |
+| -------- | ----------- |
+| `npm run migrate:up` | Applique les migrations en attente |
+| `npm run migrate:down` | Annule la dernière migration |
+| `npm run migrate:status` | Affiche l'état des migrations |
+| `npm run migrate:create <nom>` | Crée un nouveau fichier de migration |
+| `npm run d:s:u` | Alias de `migrate:up` |
+
+Vérifier les indexes appliqués :
+
+```bash
+docker compose exec mongo mongosh -u root -p password --authenticationDatabase admin decode --eval "db.users.getIndexes(); db.apps.getIndexes()"
+```
+
 ## Démarrage rapide (local)
 
 Depuis la racine du projet :
@@ -40,6 +66,7 @@ git pull
 cp .env.example .env   # première fois uniquement
 npm install
 docker compose up -d mongo
+npm run migrate:up
 npm run dev
 ```
 
