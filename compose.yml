@@ -13,8 +13,10 @@ services:
         - PORT=3000
         - DATABASE_URL=postgres://postgres:postgres@db/decode
         - JWT_SECRET=myVeryVeryStrongSecret!
+        - MONGO_URL=mongodb://root:password@mongo:27017/decode?authSource=admin
       depends_on:
         - db
+        - mongo
 
     db:
       image: postgres:17-alpine
@@ -25,8 +27,17 @@ services:
         - POSTGRES_PASSWORD=postgres
         - POSTGRES_DB=decode
 
+    mongo:
+      image: mongo
+      ports:
+        - "127.0.0.1:27019:27017"
+      volumes:
+        - mongo-data:/data/db
+      environment:
+        - MONGO_INITDB_ROOT_USERNAME=root
+        - MONGO_INITDB_ROOT_PASSWORD=password
 
 volumes:
   db-data: {}
-        
+  mongo-data: {}
       
