@@ -56,6 +56,37 @@ Vérifier les indexes appliqués :
 docker compose exec mongo mongosh -u root -p password --authenticationDatabase admin decode --eval "db.users.getIndexes(); db.apps.getIndexes()"
 ```
 
+## Modèles Mongoose
+
+Les modèles se trouvent dans `src/models/` :
+
+| Modèle | Collection | Rôle |
+| ------ | ---------- | ---- |
+| `User` | `users` | Webmasters et admins (auth plateforme) |
+| `App`  | `apps`  | Applications SDK (APP_ID, secret hashé, URLs CORS) |
+
+Relation : un `User` possède plusieurs `App` via `App.ownerId` → `User._id`.
+
+**Test manuel (création user + app en base) :**
+
+```bash
+npm run test:models
+```
+
+Le script crée un webmaster de test (`test-webmaster@example.com`), une app associée, vérifie le hash bcrypt et le virtual populate `user.apps`.
+
+**Nettoyage des données de test :**
+
+```bash
+npm run test:models:clean
+```
+
+Vérifier le contenu en base :
+
+```bash
+docker compose exec mongo mongosh -u root -p password --authenticationDatabase admin decode --eval "db.users.find().pretty(); db.apps.find().pretty()"
+```
+
 ## Démarrage rapide (local)
 
 Depuis la racine du projet :
