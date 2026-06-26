@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { unauthorized } from '../lib/errors';
-import { JwtPayload } from '../types/jwt-payload';
+import { verifyAccessToken } from '../lib/jwt';
 import { AuthUser } from '../types/auth-user';
 
 export function authenticate(optional = false) {
@@ -22,15 +21,14 @@ export function authenticate(optional = false) {
         }
 
         try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+            const payload = verifyAccessToken(token);
 
-        // TODO: remplacer par User.findById() quand Mongoose sera branché
-        req.user = {
-            id: payload.sub,
-            role: payload.role ?? 'webmaster',
-        } satisfies AuthUser;
+            req.user = {
+                id: payload.sub,
+                role: payload.role ?? 'webmaster',
+            } satisfies AuthUser;
 
-        return next();
+            return next();
         } catch {
             if (optional) return next();
             return next(unauthorized());

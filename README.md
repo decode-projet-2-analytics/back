@@ -87,6 +87,101 @@ Vérifier le contenu en base :
 docker compose exec mongo mongosh -u root -p password --authenticationDatabase admin decode --eval "db.users.find().pretty(); db.apps.find().pretty()"
 ```
 
+## Auth — register, login, refresh
+
+Routes publiques (sans JWT) sous `/api/v1/auth/`.
+
+### Utilisateurs de test (dev)
+
+Pour tester le login sans passer par la validation admin :
+
+```bash
+npm run seed:auth
+```
+
+| Email | Mot de passe | Rôle | Statut |
+| ----- | ------------ | ---- | ------ |
+| `admin@decode.local` | `TestPassword123!` | admin | validated |
+| `webmaster@decode.local` | `TestPassword123!` | webmaster | validated |
+
+### `POST /api/v1/auth/register`
+
+Inscription webmaster — compte créé en `pending`, **pas de JWT**.
+
+**Body :** `email`, `password` (≥ 8 car.), `companyName`, `kbisDocument`, `contactPhone`, `websiteUrl`
+
+**201 :**
+```json
+{ "message": "Compte créé, en attente de validation" }
+```
+
+| Code | Cas |
+| ---- | --- |
+| `422` | Champs invalides (`error.details`) |
+| `409` | Email déjà utilisé |
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "contact@masociete.fr",
+    "password": "MonMotDePasse123!",
+    "companyName": "Ma Société SAS",
+    "kbisDocument": "/uploads/kbis.pdf",
+    "contactPhone": "0612345678",
+    "websiteUrl": "https://masociete.fr"
+  }'
+```
+
+### `POST /api/v1/auth/login`
+
+**Body :** `{ "email", "password" }`
+
+**200 :**
+```json
+{ "accessToken": "...", "refreshToken": "..." }
+```
+
+| Token | Durée | Usage |
+| ----- | ----- | ----- |
+| `accessToken` | 15 min | Header `Authorization: Bearer <token>` |
+| `refreshToken` | 7 j | Body de `/auth/refresh` (type JWT dédié) |
+
+| Code | Cas |
+| ---- | --- |
+| `401` | Email ou mot de passe incorrect |
+| `403` | Compte `pending` ou `rejected` |
+| `422` | Champs invalides |
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@decode.local","password":"TestPassword123!"}'
+```
+
+### `POST /api/v1/auth/refresh`
+
+**Body :** `{ "refreshToken": "..." }`
+
+**200 :**
+```json
+{ "accessToken": "..." }
+```
+
+| Code | Cas |
+| ---- | --- |
+| `401` | Refresh token invalide ou expiré |
+| `403` | Compte webmaster non validé |
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refreshToken du login>"}'
+```
+
+Validateurs : `src/lib/validators/register.ts`, `src/lib/validators/login.ts`  
+JWT : `src/lib/jwt.ts` — secret via `JWT_SECRET` dans `.env`
+
 ## Démarrage rapide (local)
 
 Depuis la racine du projet :
