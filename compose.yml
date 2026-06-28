@@ -4,28 +4,37 @@ services:
       volumes:
         - .:/app
       working_dir: /app
-      command: npm run dev
+      command: sh scripts/docker-entrypoint.sh
       ports:
         - "3008:3000"
         - "3009:9229"
       environment:
-        - NODE_ENV=development
-        - PORT=3000
-        - DATABASE_URL=postgres://postgres:postgres@db/decode
-        - JWT_SECRET=myVeryVeryStrongSecret!
-        - MONGO_URL=mongodb://root:password@mongo:27017/decode?authSource=admin
+        NODE_ENV: development
+        PORT: "3000"
+        DATABASE_URL: postgres://postgres:postgres@db/decode
+        MONGO_URL: mongodb://root:password@mongo:27017/decode?authSource=admin
+        JWT_SECRET: myVeryVeryStrongSecret!
+        SMTP_HOST: sandbox.smtp.mailtrap.io
+        SMTP_PORT: "2525"
+        SMTP_SECURE: "false"
+        SMTP_USER: your-mailtrap-user
+        SMTP_PASS: your-mailtrap-password
+        MAIL_FROM: "Decode Analytics <noreply@decode.local>"
+        MAIL_TEST_TO: test@example.com
       depends_on:
         - db
         - mongo
 
     db:
       image: postgres:17-alpine
+      ports:
+        - "127.0.0.1:5432:5432"
       volumes:
         - db-data:/var/lib/postgresql/data
       environment:
-        - POSTGRES_USER=postgres
-        - POSTGRES_PASSWORD=postgres
-        - POSTGRES_DB=decode
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: decode
 
     mongo:
       image: mongo
@@ -34,10 +43,9 @@ services:
       volumes:
         - mongo-data:/data/db
       environment:
-        - MONGO_INITDB_ROOT_USERNAME=root
-        - MONGO_INITDB_ROOT_PASSWORD=password
+        MONGO_INITDB_ROOT_USERNAME: root
+        MONGO_INITDB_ROOT_PASSWORD: password
 
 volumes:
   db-data: {}
   mongo-data: {}
-      

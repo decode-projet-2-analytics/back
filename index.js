@@ -1,33 +1,36 @@
 const express = require('express');
 const middlewareError = require('./middlewares/error-handler');
-const defaultRouter = require('./routes/default');
-const usersRouter = require('./routes/users');
-const applicationsRouter = require('./routes/applications');
-const tagsRouter = require('./routes/tags');
-const tunnelsRouter = require('./routes/tunnels');
-const widgetsRouter = require('./routes/widgets');
-const sessionsRouter = require('./routes/sessions');
-const eventsRouter = require('./routes/events');
-const app = express();
+const v1Router = require('./routes/v1');
+const { connectMongo } = require('./lib/mongo');
+const { registerMongoSyncHooks } = require('./lib/mongo-sync');
 
+require('./models/associations');
+
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-// app.use(middlewareParseBody);
 app.use(express.json());
 app.use(express.urlencoded());
 
-app.use(defaultRouter);
-app.use(require('./routes/security'));
-app.use('/users', usersRouter);
-app.use('/applications', applicationsRouter);
-app.use('/tags', tagsRouter);
-app.use('/tunnels', tunnelsRouter);
-app.use('/widgets', widgetsRouter);
-app.use('/sessions', sessionsRouter);
-app.use('/events', eventsRouter);
+app.get('/', (_req, res) => {
+    res.json({ message: 'Decode Analytics API', api: '/api/v1' });
+});
+
+app.use('/api/v1', v1Router);
 
 app.use(middlewareError);
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+async function bootstrap() {
+    await connectMongo();
+    registerMongoSyncHooks();
+
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+        console.log('API REST: /api/v1/');
+    });
+}
+
+bootstrap().catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
 });

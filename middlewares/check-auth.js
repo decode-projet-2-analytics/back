@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const { verifyAccessToken } = require('../lib/jwt');
 
 module.exports = function checkAuth(transient = false) {
     return async function (req, res, next) {
@@ -7,22 +7,24 @@ module.exports = function checkAuth(transient = false) {
 
         if (header === undefined) {
             if (transient) return next();
-
             return res.sendStatus(401);
         }
 
         const [type, token] = header.split(/\s+/);
 
-        if (type !== "Bearer") {
+        if (type !== 'Bearer') {
             if (transient) return next();
-
             return res.sendStatus(401);
         }
 
         try {
-            const payload = jwt.verify(token, process.env.JWT_SECRET);
-
+            const payload = verifyAccessToken(token);
             req.user = await User.findByPk(payload.sub);
+
+            if (!req.user) {
+                if (transient) return next();
+                return res.sendStatus(401);
+            }
 
             return next();
         } catch (error) {
@@ -30,5 +32,5 @@ module.exports = function checkAuth(transient = false) {
             if (transient) return next();
             return res.sendStatus(401);
         }
-    }
-}
+    };
+};
