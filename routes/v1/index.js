@@ -1,6 +1,7 @@
 const { Router } = require('express');
 
 const authRouter = require('../security');
+const adminRouter = require('../admin');
 const usersRouter = require('../users');
 const applicationsRouter = require('../applications');
 const tagsRouter = require('../tags');
@@ -14,6 +15,7 @@ const router = Router();
 
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
+router.use('/admin', adminRouter);
 router.use('/users', usersRouter);
 router.use('/applications', applicationsRouter);
 router.use('/tags', tagsRouter);
