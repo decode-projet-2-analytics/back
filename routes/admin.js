@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const User = require('../models/user');
 const checkAuth = require('../middlewares/check-auth');
 const checkRole = require('../middlewares/check-role');
+const { signAccessToken } = require('../lib/jwt');
 const { sendStatusUpdateEmailSafe } = require('../lib/mail');
 
 const router = new Router();
@@ -64,4 +65,24 @@ router.patch('/users/:id/status', checkAuth(), checkRole('Admin'), async (req, r
     }
 });
 
+// POST /api/v1/admin/impersonate/:id
+router.post('/impersonate/:id', checkAuth(), checkRole('Admin'), async (req, res, next) => {
+    try {
+        const target = await User.findByPk(req.params.id);
+
+        if (!target) return res.sendStatus(404);
+        if (target.role === 'Admin') {
+            return res.status(403).json({ error: { message: 'Impossible d\'impersonate un admin' } });
+        }
+        if (target.status !== 'validated') {
+            return res.status(403).json({ error: { message: 'Compte non validé' } });
+        }
+
+        const token = signAccessToken(String(target.id), target.role, { email: target.email });
+
+        return res.json({ token });
+    } catch (error) {
+        return next(error);
+    }
+});
 module.exports = router;

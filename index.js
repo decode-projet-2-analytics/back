@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const middlewareError = require('./middlewares/error-handler');
 const v1Router = require('./routes/v1');
 const { connectMongo } = require('./lib/mongo');
@@ -9,6 +10,7 @@ require('./models/associations');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded());
 
