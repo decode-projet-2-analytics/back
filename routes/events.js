@@ -1,11 +1,14 @@
 const createCrudRouter = require('../lib/create-crud-router');
+const checkAuth = require('../middlewares/check-auth');
+const sdkCors = require('../middlewares/sdk-cors');
+const sdkAuth = require('../middlewares/sdk-auth');
 const Session = require('../models/session');
 const Tag = require('../models/tag');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/ownership-scope');
+const { ownershipScope } = require('../lib/ownership-scope');
 const Event = require('../models/event');
 
 async function assertEventRelations(req, body) {
-    await assertApplicationOwnership(req, body.applicationId);
+    body.applicationId = req.application.id;
 
     const [session, tag] = await Promise.all([
         Session.findOne({
@@ -20,13 +23,17 @@ async function assertEventRelations(req, body) {
     if (!tag) throw new Error('Tag not found');
 }
 
-module.exports = createCrudRouter({
+const router = createCrudRouter({
     model: Event,
-    auth: null, //TODO: check auth of sdk clients
-    scope: null, //TODO: set scope of sdk
+    auth: {
+        create: [sdkCors(), sdkAuth()],
+        list: checkAuth(),
+        get: checkAuth(),
+    },
+    scope: ownershipScope,
     methods: ['create', 'list', 'get'],
     allowedFields: {
-        create: ['type', 'payload', 'metadata', 'applicationId', 'sessionId', 'tagId'],
+        create: ['type', 'payload', 'metadata', 'sessionId', 'tagId'],
     },
     queryFields: ['applicationId', 'sessionId', 'tagId', 'type'],
     hooks: {
@@ -39,3 +46,7 @@ module.exports = createCrudRouter({
         }),
     },
 });
+
+router.options('/', sdkCors());
+
+module.exports = router;

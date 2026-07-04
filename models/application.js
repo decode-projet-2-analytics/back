@@ -42,13 +42,14 @@ Application.addHook('beforeCreate', (application) => {
 });
 
 Application.addHook('beforeUpdate', (application, options) => {
-    if (options.fields.includes('appSecret')) {
+    if (options.fields.includes('appSecret') && application.appSecret) {
         application.appSecret = bcrypt.hashSync(application.appSecret, bcrypt.genSaltSync(10));
     }
 });
 
 Application.prototype.toJSON = function () {
     const values = { ...this.get() };
+    values.hasSecret = Boolean(values.appSecret);
     delete values.appSecret;
     return values;
 };

@@ -1,20 +1,28 @@
 const createCrudRouter = require('../lib/create-crud-router');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/ownership-scope');
+const sdkCors = require('../middlewares/sdk-cors');
+const sdkAuth = require('../middlewares/sdk-auth');
+const { ownershipScope } = require('../lib/ownership-scope');
 const Session = require('../models/session');
 
-module.exports = createCrudRouter({
+const router = createCrudRouter({
     model: Session,
-    auth: checkAuth(),
+    auth: {
+        create: [sdkCors(), sdkAuth()],
+        list: checkAuth(),
+        get: checkAuth(),
+        patch: checkAuth(),
+        delete: checkAuth(),
+    },
     scope: ownershipScope,
     allowedFields: {
-        create: ['applicationId', 'startedAt', 'endedAt', 'metadata', 'replay'],
+        create: ['startedAt', 'endedAt', 'metadata', 'replay'],
         patch: ['endedAt', 'metadata', 'replay'],
     },
     queryFields: ['applicationId'],
     hooks: {
         beforeCreate: async (req, body) => {
-            await assertApplicationOwnership(req, body.applicationId);
+            body.applicationId = req.application.id;
             return body;
         },
         listOptions: () => ({
@@ -22,3 +30,7 @@ module.exports = createCrudRouter({
         }),
     },
 });
+
+router.options('/', sdkCors());
+
+module.exports = router;
