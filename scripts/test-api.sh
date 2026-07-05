@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# API smoke tests — run from decode-projet-2-analytics-back/
+# API smoke tests - run from back/
 #
 # Prerequisites:
 #   docker compose up -d
@@ -7,10 +7,13 @@
 #
 # Usage:
 #   bash scripts/test-api.sh
+#
+# Routes under /api/v1/ (see back/README.md, back-taches.md Phase 1)
 
 set -e
 
 BASE="http://localhost:3008"
+API="$BASE/api/v1"
 RUN_ID="${RUN_ID:-$(date +%s)}"
 WM_EMAIL="alice-${RUN_ID}@example.com"
 ADMIN_EMAIL="admin-${RUN_ID}@example.com"
@@ -84,8 +87,8 @@ echo "=== 1. Health check ==="
 curl -s "$BASE/" | json
 
 echo ""
-echo "=== 2. Signup webmaster (POST /users, no token) ==="
-WM=$(curl -s -X POST "$BASE/users" \
+echo "=== 2. Signup webmaster (POST /api/v1/users, no token) ==="
+WM=$(curl -s -X POST "$API/users" \
   -H "Content-Type: application/json" \
   -d '{
     "lastname": "Dupont",
@@ -101,35 +104,8 @@ echo "$WM" | json
 WM_ID=$(echo "$WM" | json_field id)
 
 echo ""
-echo "=== 3. Login webmaster ==="
-WM_TOKEN=$(curl -s -X POST "$BASE/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "'"$WM_EMAIL"'", "password": "Secret123!"}' | json_field token)
-echo "token: ${WM_TOKEN:0:50}..."
-
-echo ""
-echo "=== 4. GET own user (GET /users/:id) ==="
-curl -s "$BASE/users/$WM_ID" \
-  -H "Authorization: Bearer $WM_TOKEN" | json
-
-echo ""
-echo "=== 5. PATCH own user (role/status stripped for webmaster) ==="
-curl -s -X PATCH "$BASE/users/$WM_ID" \
-  -H "Authorization: Bearer $WM_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"firstname": "Alicia", "role": "Admin", "status": "validated"}' | json
-
-echo ""
-echo "=== 6. LIST users as webmaster (expect 403) ==="
-status "$BASE/users" -H "Authorization: Bearer $WM_TOKEN"
-
-echo ""
-echo "=== 7. GET /users/999 as webmaster (expect 404) ==="
-status "$BASE/users/999" -H "Authorization: Bearer $WM_TOKEN"
-
-echo ""
-echo "=== 8. Create + promote admin (signup + SQL) ==="
-curl -s -X POST "$BASE/users" \
+echo "=== 3. Create + promote admin (signup + SQL) ==="
+curl -s -X POST "$API/users" \
   -H "Content-Type: application/json" \
   -d '{
     "lastname": "Root",
@@ -144,27 +120,54 @@ docker compose exec -T db psql -U postgres -d decode -c \
   "UPDATE \"Users\" SET role='Admin', status='validated' WHERE email='${ADMIN_EMAIL}';"
 
 echo ""
-echo "=== 9. Login admin ==="
-ADMIN_TOKEN=$(curl -s -X POST "$BASE/login" \
+echo "=== 4. Login admin ==="
+ADMIN_TOKEN=$(curl -s -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "'"$ADMIN_EMAIL"'", "password": "Admin123!"}' | json_field token)
 echo "token: ${ADMIN_TOKEN:0:50}..."
 
 echo ""
-echo "=== 10. LIST users as admin ==="
-curl -s "$BASE/users?status=pending" \
+echo "=== 5. LIST users as admin (pending) ==="
+curl -s "$API/users?status=pending" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | json
 
 echo ""
-echo "=== 11. Validate webmaster (admin PATCH) ==="
-curl -s -X PATCH "$BASE/users/$WM_ID" \
+echo "=== 6. Validate webmaster (admin PATCH) ==="
+curl -s -X PATCH "$API/users/$WM_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "validated"}' | json
 
 echo ""
+echo "=== 7. Login webmaster ==="
+WM_TOKEN=$(curl -s -X POST "$API/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "'"$WM_EMAIL"'", "password": "Secret123!"}' | json_field token)
+echo "token: ${WM_TOKEN:0:50}..."
+
+echo ""
+echo "=== 8. GET own user (GET /api/v1/users/:id) ==="
+curl -s "$API/users/$WM_ID" \
+  -H "Authorization: Bearer $WM_TOKEN" | json
+
+echo ""
+echo "=== 9. PATCH own user (role/status stripped for webmaster) ==="
+curl -s -X PATCH "$API/users/$WM_ID" \
+  -H "Authorization: Bearer $WM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"firstname": "Alicia", "role": "Admin", "status": "validated"}' | json
+
+echo ""
+echo "=== 10. LIST users as webmaster (expect 403) ==="
+status "$API/users" -H "Authorization: Bearer $WM_TOKEN"
+
+echo ""
+echo "=== 11. GET /api/v1/users/999 as webmaster (expect 404) ==="
+status "$API/users/999" -H "Authorization: Bearer $WM_TOKEN"
+
+echo ""
 echo "=== 12. CREATE application (ownerId set server-side, appSecret stripped) ==="
-APP=$(curl -s -X POST "$BASE/applications" \
+APP=$(curl -s -X POST "$API/applications" \
   -H "Authorization: Bearer $WM_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -183,7 +186,7 @@ assert_no_field "$APP" "appSecret"
 
 echo ""
 echo "=== 13. GET own application ==="
-APP_GET=$(curl -s "$BASE/applications/$APP_ID" \
+APP_GET=$(curl -s "$API/applications/$APP_ID" \
   -H "Authorization: Bearer $WM_TOKEN")
 echo "$APP_GET" | json
 assert_owner_id "$APP_GET" "$WM_ID"
@@ -191,7 +194,7 @@ assert_no_field "$APP_GET" "appSecret"
 
 echo ""
 echo "=== 14. PATCH application ==="
-APP_PATCHED=$(curl -s -X PATCH "$BASE/applications/$APP_ID" \
+APP_PATCHED=$(curl -s -X PATCH "$API/applications/$APP_ID" \
   -H "Authorization: Bearer $WM_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -208,7 +211,7 @@ echo "$APP_PATCHED" | node -e "
 
 echo ""
 echo "=== 15. LIST applications as webmaster (only own) ==="
-ALICE_APPS=$(curl -s "$BASE/applications" \
+ALICE_APPS=$(curl -s "$API/applications" \
   -H "Authorization: Bearer $WM_TOKEN")
 echo "$ALICE_APPS" | json
 assert_list_count "$ALICE_APPS" 1
@@ -216,7 +219,7 @@ assert_list_count "$ALICE_APPS" 1
 echo ""
 echo "=== 16. Create second webmaster + application (isolation setup) ==="
 BOB_EMAIL="bob-${RUN_ID}@example.com"
-BOB=$(curl -s -X POST "$BASE/users" \
+BOB=$(curl -s -X POST "$API/users" \
   -H "Content-Type: application/json" \
   -d '{
     "lastname": "Martin",
@@ -228,16 +231,16 @@ BOB=$(curl -s -X POST "$BASE/users" \
   }')
 BOB_ID=$(echo "$BOB" | json_field id)
 
-curl -s -X PATCH "$BASE/users/$BOB_ID" \
+curl -s -X PATCH "$API/users/$BOB_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "validated"}' > /dev/null
 
-BOB_TOKEN=$(curl -s -X POST "$BASE/login" \
+BOB_TOKEN=$(curl -s -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "'"$BOB_EMAIL"'", "password": "Secret123!"}' | json_field token)
 
-BOB_APP=$(curl -s -X POST "$BASE/applications" \
+BOB_APP=$(curl -s -X POST "$API/applications" \
   -H "Authorization: Bearer $BOB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "Bob Shop", "allowedUrls": ["https://shop.bob-corp.example.com"]}')
@@ -247,23 +250,23 @@ assert_owner_id "$BOB_APP" "$BOB_ID"
 
 echo ""
 echo "=== 17. Webmaster cannot access another user's application ==="
-expect_status 404 "$BASE/applications/$BOB_APP_ID" \
+expect_status 404 "$API/applications/$BOB_APP_ID" \
   -H "Authorization: Bearer $WM_TOKEN"
 
 echo ""
 echo "=== 18. Webmaster list excludes other users' applications ==="
-ALICE_APPS=$(curl -s "$BASE/applications" \
+ALICE_APPS=$(curl -s "$API/applications" \
   -H "Authorization: Bearer $WM_TOKEN")
 assert_list_excludes_id "$ALICE_APPS" "$BOB_APP_ID"
 
-BOB_APPS=$(curl -s "$BASE/applications" \
+BOB_APPS=$(curl -s "$API/applications" \
   -H "Authorization: Bearer $BOB_TOKEN")
 assert_list_count "$BOB_APPS" 1
 assert_list_excludes_id "$BOB_APPS" "$APP_ID"
 
 echo ""
 echo "=== 19. Admin lists all applications ==="
-ADMIN_APPS=$(curl -s "$BASE/applications" \
+ADMIN_APPS=$(curl -s "$API/applications" \
   -H "Authorization: Bearer $ADMIN_TOKEN")
 echo "$ADMIN_APPS" | json
 echo "$ADMIN_APPS" | APP_ID="$APP_ID" BOB_APP_ID="$BOB_APP_ID" node -e "
@@ -279,25 +282,34 @@ echo "$ADMIN_APPS" | APP_ID="$APP_ID" BOB_APP_ID="$BOB_APP_ID" node -e "
 "
 
 echo ""
-echo "=== 20. CREATE tag scoped to own application ==="
-TAG=$(curl -s -X POST "$BASE/tags" \
+echo "=== 20. CREATE tunnel scoped to application (before tag - tunnelId required) ==="
+TUNNEL=$(curl -s -X POST "$API/tunnels" \
   -H "Authorization: Bearer $WM_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"comment\": \"Add to cart\", \"applicationId\": $APP_ID}")
+  -d "{\"comment\": \"Checkout funnel\", \"applicationId\": $APP_ID, \"tagIds\": []}")
+echo "$TUNNEL" | json
+TUNNEL_ID=$(echo "$TUNNEL" | json_field tunnelId)
+
+echo ""
+echo "=== 21. CREATE tag scoped to own application ==="
+TAG=$(curl -s -X POST "$API/tags" \
+  -H "Authorization: Bearer $WM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"comment\": \"Add to cart\", \"applicationId\": $APP_ID, \"tunnelId\": \"$TUNNEL_ID\"}")
 echo "$TAG" | json
 TAG_ID=$(echo "$TAG" | json_field id)
 
 echo ""
-echo "=== 21. CREATE tag on another user's application (expect 500) ==="
-expect_status 500 "$BASE/tags" \
+echo "=== 22. CREATE tag on another user's application (expect 500) ==="
+expect_status 500 "$API/tags" \
   -X POST \
   -H "Authorization: Bearer $WM_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"comment\": \"Forbidden tag\", \"applicationId\": $BOB_APP_ID}"
+  -d "{\"comment\": \"Forbidden tag\", \"applicationId\": $BOB_APP_ID, \"tunnelId\": \"$TUNNEL_ID\"}"
 
 echo ""
-echo "=== 22. LIST tags filtered by applicationId ==="
-ALICE_TAGS=$(curl -s "$BASE/tags?applicationId=$APP_ID" \
+echo "=== 23. LIST tags filtered by applicationId ==="
+ALICE_TAGS=$(curl -s "$API/tags?applicationId=$APP_ID" \
   -H "Authorization: Bearer $WM_TOKEN")
 echo "$ALICE_TAGS" | json
 echo "$ALICE_TAGS" | APP_ID="$APP_ID" node -e "
@@ -310,25 +322,23 @@ echo "$ALICE_TAGS" | APP_ID="$APP_ID" node -e "
 "
 
 echo ""
-echo "=== 23. Webmaster cannot GET tag from another user's application ==="
-BOB_TAG=$(curl -s -X POST "$BASE/tags" \
+echo "=== 24. Webmaster cannot GET tag from another user's application ==="
+BOB_TUNNEL=$(curl -s -X POST "$API/tunnels" \
   -H "Authorization: Bearer $BOB_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"comment\": \"Bob tag\", \"applicationId\": $BOB_APP_ID}")
+  -d "{\"comment\": \"Bob funnel\", \"applicationId\": $BOB_APP_ID, \"tagIds\": []}")
+BOB_TUNNEL_ID=$(echo "$BOB_TUNNEL" | json_field tunnelId)
+BOB_TAG=$(curl -s -X POST "$API/tags" \
+  -H "Authorization: Bearer $BOB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"comment\": \"Bob tag\", \"applicationId\": $BOB_APP_ID, \"tunnelId\": \"$BOB_TUNNEL_ID\"}")
 BOB_TAG_ID=$(echo "$BOB_TAG" | json_field id)
-expect_status 404 "$BASE/tags/$BOB_TAG_ID" \
+expect_status 404 "$API/tags/$BOB_TAG_ID" \
   -H "Authorization: Bearer $WM_TOKEN"
 
 echo ""
-echo "=== 24. CREATE tunnel scoped to application ==="
-curl -s -X POST "$BASE/tunnels" \
-  -H "Authorization: Bearer $WM_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"comment\": \"Checkout funnel\", \"applicationId\": $APP_ID, \"tagIds\": [$TAG_ID]}" | json
-
-echo ""
 echo "=== 25. PATCH tag (applicationId not patchable) ==="
-TAG_PATCHED=$(curl -s -X PATCH "$BASE/tags/$TAG_ID" \
+TAG_PATCHED=$(curl -s -X PATCH "$API/tags/$TAG_ID" \
   -H "Authorization: Bearer $WM_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"comment": "Add to cart (updated)", "applicationId": '"$BOB_APP_ID"'}')
