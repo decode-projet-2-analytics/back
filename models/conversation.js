@@ -1,6 +1,8 @@
 const { Model, DataTypes } = require('sequelize');
 const connection = require('../lib/db');
 
+const { PROBLEM_TYPES, DEFAULT_PROBLEM_TYPE } = require('../lib/socket/chat/chat-problem-types');
+
 class Conversation extends Model { }
 
 Conversation.init({
@@ -22,6 +24,11 @@ Conversation.init({
     userId: {
         type: DataTypes.INTEGER,
         allowNull: true,
+    },
+    problemType: {
+        type: DataTypes.ENUM(...PROBLEM_TYPES),
+        allowNull: false,
+        defaultValue: DEFAULT_PROBLEM_TYPE,
     },
     lastMessageAt: {
         type: DataTypes.DATE,
