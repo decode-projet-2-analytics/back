@@ -14,6 +14,8 @@ module.exports = function middlewareError(error, req, res, next) {
          * }
          */
         res.status(422).json(errors);
+    } else if (error.status) {
+        res.sendStatus(error.status);
     } else {
         console.error(error);
         res.sendStatus(500);
