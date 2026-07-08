@@ -9,6 +9,7 @@ const tunnelsRouter = require('../tunnels');
 const widgetsRouter = require('../widgets');
 const sessionsRouter = require('../sessions');
 const eventsRouter = require('../events');
+const conversationsRouter = require('../conversations');
 const healthRouter = require('./health');
 
 const router = Router();
@@ -23,5 +24,6 @@ router.use('/tunnels', tunnelsRouter);
 router.use('/widgets', widgetsRouter);
 router.use('/sessions', sessionsRouter);
 router.use('/events', eventsRouter);
+router.use('/conversations', conversationsRouter);
 
 module.exports = router;
