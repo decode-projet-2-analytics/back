@@ -1,9 +1,11 @@
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const middlewareError = require('./middlewares/error-handler');
 const v1Router = require('./routes/v1');
 const { connectMongo } = require('./lib/mongo');
 const { registerMongoSyncHooks } = require('./lib/mongo-sync');
+const { initSocket } = require('./lib/socket');
 
 require('./models/associations');
 
@@ -37,9 +39,13 @@ async function bootstrap() {
     await connectMongo();
     registerMongoSyncHooks();
 
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    initSocket(server, { corsOrigin: FRONTEND_URL });
+
+    server.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
         console.log('API REST: /api/v1/');
+        console.log('WebSocket: /notifications, /chat');
     });
 }
 
