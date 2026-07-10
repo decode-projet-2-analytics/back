@@ -15,7 +15,6 @@ async function main() {
     const Session = require('../models/session');
     const Tag = require('../models/tag');
     const Event = require('../models/event');
-    const Tunnel = require('../models/tunnel');
 
     await connectMongo();
     registerMongoSyncHooks();
@@ -28,15 +27,10 @@ async function main() {
 
     let tag = await Tag.findOne({ where: { applicationId } });
     if (!tag) {
-        const tunnel = await Tunnel.create({
-            comment: 'Seed tunnel',
-            applicationId,
-            tagIds: [],
-        });
         tag = await Tag.create({
+            slug: 'seed_tag',
             comment: 'Seed tag',
             applicationId,
-            tunnelId: tunnel.tunnelId,
         });
         console.log(`Created tag #${tag.id}`);
     }

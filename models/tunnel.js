@@ -10,10 +10,12 @@ Tunnel.init({
         unique: true,
         defaultValue: DataTypes.UUIDV4,
     },
-    comment: {
-        type: DataTypes.TEXT,
+    name: {
+        type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: '',
+        validate: {
+            notEmpty: true,
+        },
     },
     tagIds: {
         type: DataTypes.ARRAY(DataTypes.INTEGER),

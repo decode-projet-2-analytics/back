@@ -10,17 +10,21 @@ const Event = require('../models/event');
 async function assertEventRelations(req, body) {
     body.applicationId = req.application.id;
 
-    const [session, tag] = await Promise.all([
-        Session.findOne({
-            where: { id: body.sessionId, applicationId: body.applicationId },
-        }),
-        Tag.findOne({
-            where: { id: body.tagId, applicationId: body.applicationId },
-        }),
-    ]);
-
+    const session = await Session.findOne({
+        where: { id: body.sessionId, applicationId: body.applicationId },
+    });
     if (!session) throw new Error('Session not found');
+
+    const slug = String(body.tagSlug ?? '').trim();
+    if (!slug) throw new Error('tagSlug is required');
+
+    const tag = await Tag.findOne({
+        where: { slug, applicationId: body.applicationId },
+    });
     if (!tag) throw new Error('Tag not found');
+
+    body.tagId = tag.id;
+    delete body.tagSlug;
 }
 
 const router = createCrudRouter({
@@ -33,7 +37,7 @@ const router = createCrudRouter({
     scope: ownershipScope,
     methods: ['create', 'list', 'get'],
     allowedFields: {
-        create: ['type', 'payload', 'metadata', 'sessionId', 'tagId'],
+        create: ['type', 'payload', 'metadata', 'sessionId', 'tagSlug'],
     },
     queryFields: ['applicationId', 'sessionId', 'tagId', 'type'],
     hooks: {

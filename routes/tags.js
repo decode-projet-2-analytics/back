@@ -8,13 +8,21 @@ module.exports = createCrudRouter({
     auth: checkAuth(),
     scope: ownershipScope,
     allowedFields: {
-        create: ['comment', 'applicationId', 'tunnelId'],
-        patch: ['comment', 'tunnelId'],
+        create: ['slug', 'comment', 'applicationId'],
+        patch: ['comment'],
     },
-    queryFields: ['applicationId', 'tunnelId'],
+    queryFields: ['applicationId', 'slug'],
     hooks: {
         beforeCreate: async (req, body) => {
             await assertApplicationOwnership(req, body.applicationId);
+            body.slug = String(body.slug ?? '').trim();
+            body.comment = String(body.comment ?? '').trim();
+            return body;
+        },
+        beforePatch: async (req, body) => {
+            if (body.comment !== undefined) {
+                body.comment = String(body.comment).trim();
+            }
             return body;
         },
     },

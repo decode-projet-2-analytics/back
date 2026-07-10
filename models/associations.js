@@ -26,9 +26,6 @@ Session.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' 
 Application.hasMany(Event, { foreignKey: 'applicationId', as: 'events' });
 Event.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
-Tunnel.hasMany(Tag, { foreignKey: 'tunnelId', sourceKey: 'tunnelId', as: 'tags' });
-Tag.belongsTo(Tunnel, { foreignKey: 'tunnelId', targetKey: 'tunnelId', as: 'tunnel' });
-
 Session.hasMany(Event, { foreignKey: 'sessionId', as: 'events' });
 Event.belongsTo(Session, { foreignKey: 'sessionId', as: 'session' });
 
