@@ -7,6 +7,10 @@ const Tag = require('../models/tag');
 const { ownershipScope } = require('../lib/ownership-scope');
 const Event = require('../models/event');
 
+// Note: every created event is automatically cloned to MongoDB (the
+// `sync_events` mirror) by the generic hooks in lib/mongo-sync.js, so
+// analytics/stats read from Mongo. No manual clone is needed here.
+
 async function assertEventRelations(req, body) {
     body.applicationId = req.application.id;
 
