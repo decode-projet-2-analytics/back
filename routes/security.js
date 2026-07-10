@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 
 const User = require('../models/user');
 const checkAuth = require('../middlewares/check-auth');
@@ -7,15 +8,48 @@ const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../li
 const { validateLoginBody, validateRefreshBody } = require('../lib/validators/login');
 const { validateRegisterBody } = require('../lib/validators/register');
 const { sendRegistrationPendingEmailSafe } = require('../lib/mail');
+const { uploadKbis } = require('../lib/kbis-upload');
+const { isKbisDocumentAvailable, parseKbisDocument } = require('../lib/kbis');
 
 const router = new Router();
 
-const REGISTER_KEYS = ['email', 'password', 'companyName', 'kbisDocument', 'contactPhone', 'websiteUrl'];
+const REGISTER_KEYS = [
+    'email',
+    'password',
+    'firstname',
+    'lastname',
+    'companyName',
+    'kbisDocument',
+    'contactPhone',
+    'websiteUrl',
+];
 
 function pickBody(body, keys) {
     if (!body || typeof body !== 'object') return {};
     return Object.fromEntries(Object.entries(body).filter(([k]) => keys.includes(k)));
 }
+
+router.post('/kbis', (req, res) => {
+    uploadKbis(req, res, (err) => {
+        if (err) {
+            if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(422).json({ error: { message: 'Fichier trop volumineux (5 Mo max)' } });
+            }
+
+            return res.status(422).json({
+                error: { message: err.message || 'Upload invalide' },
+            });
+        }
+
+        if (!req.file) {
+            return res.status(422).json({ error: { message: 'Fichier KBIS obligatoire' } });
+        }
+
+        return res.status(201).json({
+            kbisDocument: `/uploads/kbis/${req.file.filename}`,
+        });
+    });
+});
 
 router.post('/register', async (req, res, next) => {
     try {
@@ -25,14 +59,37 @@ router.post('/register', async (req, res, next) => {
             return res.status(422).json({ error: { message: 'Champs invalides', details: result.errors } });
         }
 
-        const { email, password, companyName, kbisDocument, contactPhone, websiteUrl } = result.data;
+        const {
+            email,
+            password,
+            firstname,
+            lastname,
+            companyName,
+            kbisDocument,
+            contactPhone,
+            websiteUrl,
+        } = result.data;
+
+        if (!parseKbisDocument(kbisDocument)) {
+            return res.status(422).json({
+                error: { message: 'Document KBIS invalide', details: ['kbisDocument invalide'] },
+            });
+        }
+
+        if (!(await isKbisDocumentAvailable(kbisDocument, User))) {
+            return res.status(422).json({
+                error: { message: 'Document KBIS introuvable ou déjà utilisé', details: ['kbisDocument'] },
+            });
+        }
 
         await User.create({
             email: email.toLowerCase().trim(),
             password,
+            firstname,
+            lastname,
             role: 'Webmaster',
             status: 'pending',
-            companyName: companyName.trim(),
+            companyName,
             kbisDocument,
             contactPhone: contactPhone.trim(),
             websiteUrl,
@@ -40,7 +97,7 @@ router.post('/register', async (req, res, next) => {
 
         sendRegistrationPendingEmailSafe({
             email: email.toLowerCase().trim(),
-            companyName: companyName.trim(),
+            companyName,
             contactPhone: contactPhone.trim(),
             websiteUrl,
         });

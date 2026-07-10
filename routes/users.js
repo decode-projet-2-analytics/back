@@ -8,7 +8,7 @@ module.exports = createCrudRouter({
     auth: {
         list: [checkAuth(), checkRole(['Admin'])],
         put: [checkAuth(), checkRole(['Admin'])],
-        create: checkAuth(true),
+        create: [checkAuth(), checkRole(['Admin'])],
         patch: [checkAuth()],
         delete: [checkAuth()],
         get: [checkAuth()],

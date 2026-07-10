@@ -6,6 +6,7 @@ const checkAuth = require('../middlewares/check-auth');
 const checkRole = require('../middlewares/check-role');
 const { signAccessToken } = require('../lib/jwt');
 const { sendStatusUpdateEmailSafe } = require('../lib/mail');
+const { getKbisFilePath } = require('../lib/kbis');
 
 const router = new Router();
 
@@ -30,6 +31,28 @@ router.get('/users', checkAuth(), checkRole('Admin'), async (req, res, next) => 
         const users = await User.findAll({ where, order: [['createdAt', 'DESC']] });
 
         return res.json(users);
+    } catch (error) {
+        return next(error);
+    }
+});
+
+// GET /api/v1/admin/users/:id/kbis
+router.get('/users/:id/kbis', checkAuth(), checkRole('Admin'), async (req, res, next) => {
+    try {
+        const user = await User.findByPk(req.params.id);
+
+        if (!user?.kbisDocument) {
+            return res.sendStatus(404);
+        }
+
+        const filePath = getKbisFilePath(user.kbisDocument);
+
+        if (!filePath) {
+            return res.sendStatus(404);
+        }
+
+        res.type('application/pdf');
+        return res.sendFile(filePath);
     } catch (error) {
         return next(error);
     }
