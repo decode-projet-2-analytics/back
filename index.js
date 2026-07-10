@@ -12,7 +12,7 @@ require('./models/associations');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const SDK_PATH_PREFIXES = ['/api/v1/events', '/api/v1/sessions'];
+const SDK_PATH_PREFIXES = ['/api/v1/events', '/api/v1/sessions', '/api/v1/collect'];
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const backofficeCors = cors({ origin: FRONTEND_URL });
@@ -24,8 +24,9 @@ app.use((req, res, next) => {
     return backofficeCors(req, res, next);
 });
 
-app.use(express.json());
-app.use(express.urlencoded());
+// Limit raised to accommodate SDK payloads that embed a base64 page screenshot.
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.get('/', (_req, res) => {
     res.json({ message: 'Decode Analytics API', api: '/api/v1' });

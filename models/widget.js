@@ -1,7 +1,7 @@
 const { Model, DataTypes } = require('sequelize');
 const connection = require('../lib/db');
 
-const WIDGET_TYPES = ['kpi', 'timeseries', 'heatmap'];
+const WIDGET_TYPES = ['kpi', 'timeseries', 'heatmap', 'mouse_heatmap'];
 const WIDGET_METRICS = ['count', 'rate'];
 
 const defaultConfig = {
