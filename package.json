@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test tests/*.test.js",
     "dev": "docker compose up",
     "dev:node": "node --inspect=0.0.0.0 --watch index.js",
     "dev:windows": "nodemon --inspect=0.0.0.0 -L index.js",
