@@ -7,9 +7,23 @@ const Session = require('./session');
 const Event = require('./event');
 const Conversation = require('./conversation');
 const Message = require('./message');
+const ApplicationMember = require('./application-member');
+const ApplicationInvitation = require('./application-invitation');
 
 User.hasMany(Application, { foreignKey: 'ownerId', as: 'applications' });
 Application.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+
+Application.hasMany(ApplicationMember, { foreignKey: 'applicationId', as: 'members' });
+ApplicationMember.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+User.hasMany(ApplicationMember, { foreignKey: 'userId', as: 'applicationMemberships' });
+ApplicationMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(ApplicationMember, { foreignKey: 'invitedBy', as: 'sentApplicationMemberships' });
+ApplicationMember.belongsTo(User, { foreignKey: 'invitedBy', as: 'inviter' });
+
+Application.hasMany(ApplicationInvitation, { foreignKey: 'applicationId', as: 'invitations' });
+ApplicationInvitation.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+User.hasMany(ApplicationInvitation, { foreignKey: 'invitedBy', as: 'sentApplicationInvitations' });
+ApplicationInvitation.belongsTo(User, { foreignKey: 'invitedBy', as: 'inviter' });
 
 Application.hasMany(Tag, { foreignKey: 'applicationId', as: 'tags' });
 Tag.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
