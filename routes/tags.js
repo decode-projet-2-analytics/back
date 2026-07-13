@@ -1,7 +1,7 @@
 const createCrudRouter = require('../lib/create-crud-router');
 const Tag = require('../models/tag');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/ownership-scope');
+const { ownershipScope, assertApplicationOwnership } = require('../lib/utils/ownership-scope');
 
 module.exports = createCrudRouter({
     model: Tag,

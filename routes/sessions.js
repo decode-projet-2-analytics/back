@@ -2,7 +2,7 @@ const createCrudRouter = require('../lib/create-crud-router');
 const checkAuth = require('../middlewares/check-auth');
 const sdkCors = require('../middlewares/sdk-cors');
 const sdkAuth = require('../middlewares/sdk-auth');
-const { ownershipScope } = require('../lib/ownership-scope');
+const { ownershipScope } = require('../lib/utils/ownership-scope');
 const Session = require('../models/session');
 
 const router = createCrudRouter({

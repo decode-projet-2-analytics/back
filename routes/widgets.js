@@ -1,9 +1,11 @@
 const createCrudRouter = require('../lib/create-crud-router');
 const Widget = require('../models/widget');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope } = require('../lib/ownership-scope');
+const { ownershipScope } = require('../lib/utils/ownership-scope');
 const { assertApplicationRole } = require('../lib/application-access');
-const { getWidgetData } = require('../lib/widget-data');
+const { getWidgetData } = require('../lib/widgets/get-data');
+const { pushWidget } = require('../lib/socket/analytics/push');
+const { normalizeLayout, normalizeWidgetLayout } = require('../lib/widgets/layout');
 
 async function assertWidgetApplicationRole(req, widgetId, requiredRole) {
     const widget = await Widget.findOne({
@@ -49,17 +51,29 @@ module.exports = createCrudRouter({
                 body.position = (latest?.position ?? -1) + 1;
             }
 
+            body.config = body.config || {};
+            body.config.layout = normalizeWidgetLayout(body.type, body.config.layout);
+
             return body;
         },
         beforePatch: async (req, body) => {
-            await assertWidgetApplicationRole(req, req.params.id, 'admin');
+            if (body.config !== undefined) {
+                body.config = body.config || {};
+                if (body.config.layout !== undefined) {
+                    body.config.layout = normalizeLayout(body.config.layout);
+                }
+            }
             return body;
-        },
-        beforeDelete: async (req) => {
-            await assertWidgetApplicationRole(req, req.params.id, 'admin');
         },
         listOptions: (req) => ({
             order: [['position', 'ASC'], ['id', 'ASC']],
         }),
+        afterPatch: async (req, item) => {
+            try {
+                await pushWidget(item);
+            } catch (err) {
+                console.error('[analytics] push after patch failed', item.id, err.message);
+            }
+        },
     },
 });

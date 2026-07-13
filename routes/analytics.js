@@ -1,12 +1,12 @@
 const { Router } = require('express');
 
 const checkAuth = require('../middlewares/check-auth');
-const { assertApplicationOwnership } = require('../lib/ownership-scope');
+const { assertApplicationOwnership } = require('../lib/utils/ownership-scope');
 const {
     PERIODS,
     getTrackedPages,
     getMouseMovements,
-} = require('../lib/mouse-heatmap');
+} = require('../lib/aggregations/mouse-heatmap');
 const PageSnapshot = require('../models/mongo-snapshot');
 
 const router = new Router();
