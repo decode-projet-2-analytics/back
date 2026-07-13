@@ -1,7 +1,7 @@
 const createCrudRouter = require('../lib/create-crud-router');
 const checkAuth = require('../middlewares/check-auth');
 const checkRole = require('../middlewares/check-role');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/ownership-scope');
+const { ownershipScope, assertApplicationOwnership } = require('../lib/utils/ownership-scope');
 const { loadConversation } = require('../lib/socket/chat/access-conversation');
 const { serializeMessage } = require('../lib/socket/chat/serialize');
 const { emitConversationStatus } = require('../lib/socket/chat');

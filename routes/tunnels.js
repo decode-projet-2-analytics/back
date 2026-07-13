@@ -2,7 +2,7 @@ const createCrudRouter = require('../lib/create-crud-router');
 const Tunnel = require('../models/tunnel');
 const Tag = require('../models/tag');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/ownership-scope');
+const { ownershipScope, assertApplicationOwnership } = require('../lib/utils/ownership-scope');
 
 async function assertTagIdsBelongToApplication(tagIds, applicationId) {
     const ids = Array.isArray(tagIds) ? tagIds : [];

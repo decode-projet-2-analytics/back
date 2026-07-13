@@ -2,7 +2,7 @@ const { Router } = require('express');
 
 const sdkCors = require('../middlewares/sdk-cors');
 const sdkAuth = require('../middlewares/sdk-auth');
-const { ingestSessionPayload } = require('../lib/ingest');
+const { ingestSessionPayload } = require('../lib/sdk/ingest');
 
 const router = new Router();
 
