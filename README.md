@@ -148,6 +148,26 @@ Routes principales :
 
 Le SDK frontend s'authentifie avec `APP_ID` et applique les regles CORS. Le SDK backend envoie `APP_ID` + `APP_SECRET` via les headers `x-app-id` et `x-app-secret`; le secret est compare avec le hash stocke.
 
+### Evenements du SDK serveur
+
+`POST /api/v1/server-events` est reserve aux backends des sites clients. La
+requete doit fournir les headers `x-app-id` et `x-app-secret`, ainsi que :
+
+```json
+{
+  "type": "purchase",
+  "tagSlug": "purchase_confirmed",
+  "sessionId": "visitor-session-12",
+  "payload": { "amount": 49.99, "currency": "EUR" },
+  "metadata": { "source": "showcase" }
+}
+```
+
+`type`, `tagSlug` et `sessionId` sont obligatoires. Le TAG doit etre actif et
+appartenir a l'application authentifiee. Une creation reussie retourne `201`.
+Les champs invalides retournent `400`, les credentials invalides `401`, et un
+TAG introuvable `404`.
+
 ## Gestion d'equipe par application
 
 Les roles applicatifs sont :

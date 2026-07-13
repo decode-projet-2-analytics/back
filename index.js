@@ -14,7 +14,12 @@ require('./models/associations');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const SDK_PATH_PREFIXES = ['/api/v1/events', '/api/v1/sessions', '/api/v1/collect'];
+const SDK_PATH_PREFIXES = [
+    '/api/v1/events',
+    '/api/v1/sessions',
+    '/api/v1/collect',
+    '/api/v1/server-events',
+];
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const backofficeCors = cors({ origin: FRONTEND_URL });

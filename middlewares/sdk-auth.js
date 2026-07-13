@@ -4,7 +4,7 @@ const Application = require('../models/application');
 const APP_ID_HEADER = 'x-app-id';
 const APP_SECRET_HEADER = 'x-app-secret';
 
-module.exports = function sdkAuth() {
+module.exports = function sdkAuth({ requireSecret = false } = {}) {
     return async function (req, res, next) {
         try {
             const appId = req.headers[APP_ID_HEADER] || req.body?.appId || req.query.appId;
@@ -13,13 +13,16 @@ module.exports = function sdkAuth() {
                 return res.status(401).json({ error: { message: 'appId manquant' } });
             }
 
+            const appSecret = req.headers[APP_SECRET_HEADER];
+            if (requireSecret && !appSecret) {
+                return res.status(401).json({ error: { message: 'appSecret manquant' } });
+            }
+
             const application = await Application.findOne({ where: { appId } });
 
             if (!application) {
                 return res.status(401).json({ error: { message: 'Application inconnue' } });
             }
-
-            const appSecret = req.headers[APP_SECRET_HEADER];
 
             if (appSecret) {
                 // Backend SDK path.
