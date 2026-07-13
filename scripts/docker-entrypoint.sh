@@ -3,9 +3,7 @@ set -e
 
 cd /app
 
-if [ ! -d node_modules/express ]; then
-  npm install
-fi
+node scripts/ensure-deps.js
 
 npm run d:s:u
 

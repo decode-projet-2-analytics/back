@@ -1,10 +1,26 @@
 const createCrudRouter = require('../lib/create-crud-router');
 const Widget = require('../models/widget');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/utils/ownership-scope');
+const { ownershipScope } = require('../lib/utils/ownership-scope');
+const { assertApplicationRole } = require('../lib/application-access');
 const { getWidgetData } = require('../lib/widgets/get-data');
 const { pushWidget } = require('../lib/socket/analytics/push');
 const { normalizeLayout, normalizeWidgetLayout } = require('../lib/widgets/layout');
+
+async function assertWidgetApplicationRole(req, widgetId, requiredRole) {
+    const widget = await Widget.findOne({
+        where: { ...ownershipScope(req), id: widgetId },
+        attributes: ['applicationId'],
+    });
+
+    if (!widget) {
+        const error = new Error('Widget not found');
+        error.status = 404;
+        throw error;
+    }
+
+    await assertApplicationRole(req, widget.applicationId, requiredRole);
+}
 
 module.exports = createCrudRouter({
     model: Widget,
@@ -24,7 +40,7 @@ module.exports = createCrudRouter({
     ],
     hooks: {
         beforeCreate: async (req, body) => {
-            await assertApplicationOwnership(req, body.applicationId);
+            await assertApplicationRole(req, body.applicationId, 'admin');
 
             if (body.position === undefined || body.position === null) {
                 const latest = await Widget.findOne({

@@ -12,6 +12,7 @@ const eventsRouter = require('../events');
 const conversationsRouter = require('../conversations');
 const analyticsRouter = require('../analytics');
 const collectRouter = require('../collect');
+const teamInvitationsRouter = require('../team-invitations');
 const healthRouter = require('./health');
 
 const router = Router();
@@ -29,5 +30,6 @@ router.use('/events', eventsRouter);
 router.use('/conversations', conversationsRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/collect', collectRouter);
+router.use('/team-invitations', teamInvitationsRouter);
 
 module.exports = router;
