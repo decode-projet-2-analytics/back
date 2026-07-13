@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test lib/utils/*.test.js lib/aggregations/*.test.js lib/widgets/*.test.js",
     "dev": "docker compose up",
     "dev:node": "node --inspect=0.0.0.0 --watch index.js",
     "dev:windows": "nodemon --inspect=0.0.0.0 -L index.js",
@@ -16,6 +16,7 @@
     "migrate:status": "node migrate.js status",
     "d:s:u": "npm run migrate:up",
     "seed:admin": "node scripts/seed-admin.js",
+    "seed:events": "node scripts/seed-events.js",
     "test:mail": "node scripts/test-mail.js"
   },
   "peerDependencies": {
