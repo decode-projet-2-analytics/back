@@ -8,14 +8,22 @@
  *   - Tunnel: "Checkout funnel" (landing → checkout → purchase)
  *   - Sessions + type "event" on buyForm with varied metadata (browser, plan, loadMs)
  *   - Funnel step events with drop-off across sessions
- *   - type "mousemove" point batches on two pages
- *   - Sample widgets: events KPI / timeseries / comparison, funnel, mouse heatmap
+ *   - type "pageview" on several URLs + referrers (breakdown widgets)
+ *   - type "scroll" with depth samples (scroll_depth widget)
+ *   - type "click" batches
+ *   - type "mousemove" point batches on two pages (mouse heatmap)
+ *   - Sample widgets: events (nombre, bar, line, pie, activity), funnel,
+ *     breakdown (url + referrer), scroll_depth, mouse_heatmap
+ *
+ * Re-running removes previous seed sessions/events (metadata.seed = true) first.
  *
  * Usage (inside Docker):
  *   docker compose exec backend npm run seed:events -- <applicationId> [eventCount]
  *
  * Local host needs DATABASE_URL + MONGO_URL (compose values use hostname `db`/`mongo`).
  */
+
+const { Op } = require('sequelize');
 
 const applicationId = Number(process.argv[2]);
 const eventCount = Math.max(24, Number(process.argv[3] ?? 72) || 72);
@@ -30,14 +38,41 @@ const DAY_MS = 24 * HOUR_MS;
 
 const BROWSERS = ['chrome', 'firefox', 'safari', 'edge'];
 const PLANS = ['free', 'pro', 'enterprise'];
+const REFERRERS = [
+    'https://google.com/',
+    'https://bing.com/',
+    'https://news.ycombinator.com/',
+    '',
+    'https://twitter.com/',
+];
 const PAGES = [
-    'https://example.com/',
-    'https://example.com/pricing',
+    { url: 'https://example.com/', title: 'Home' },
+    { url: 'https://example.com/pricing', title: 'Pricing' },
+    { url: 'https://example.com/docs', title: 'Docs' },
+    { url: 'https://example.com/blog', title: 'Blog' },
+];
+
+const DOC_SIZE = { width: 1440, height: 4000 };
+const VIEWPORT = { width: 1440, height: 800, dpr: 1 };
+
+/** Scroll depths targeting each bucket (docH=4000, vpH=800). */
+const SCROLL_PROFILES = [
+    { scrollY: 0, label: '0-25%' },
+    { scrollY: 600, label: '25-50%' },
+    { scrollY: 1400, label: '50-75%' },
+    { scrollY: 2800, label: '75-100%' },
 ];
 
 /** Minimal 1×1 JPEG data URL (heatmap background placeholder). */
 const TINY_JPEG =
     'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGcP//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEABj8Cf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8hf//Z';
+
+const SLIDING_RANGE = {
+    from: null,
+    to: null,
+    step: '1h',
+    preset: '7d',
+};
 
 function hoursAgo(hours) {
     return new Date(Date.now() - hours * HOUR_MS);
@@ -45,6 +80,30 @@ function hoursAgo(hours) {
 
 function pick(list, index) {
     return list[index % list.length];
+}
+
+async function cleanupSeedData(Event, Session) {
+    const seedSessions = await Session.findAll({
+        where: {
+            applicationId,
+            metadata: { [Op.contains]: { seed: true } },
+        },
+    });
+
+    if (seedSessions.length === 0) {
+        console.log('Cleanup: no previous seed sessions');
+        return;
+    }
+
+    const sessionIds = seedSessions.map((session) => session.id);
+    const deletedEvents = await Event.destroy({
+        where: { sessionId: { [Op.in]: sessionIds } },
+    });
+    const deletedSessions = await Session.destroy({
+        where: { id: { [Op.in]: sessionIds } },
+    });
+
+    console.log(`Cleanup: removed ${deletedEvents} events, ${deletedSessions} sessions`);
 }
 
 async function ensureTag(Tag, { slug, comment }) {
@@ -75,9 +134,13 @@ async function ensureWidget(Widget, { type, title, config, position, layout }) {
     let widget = await Widget.findOne({ where: { applicationId, title } });
     const nextConfig = {
         filters: {},
-        timeRange: { from: null, to: null, step: '1h' },
+        timeRange: SLIDING_RANGE,
         metric: 'count',
         ...config,
+        timeRange: {
+            ...SLIDING_RANGE,
+            ...(config?.timeRange ?? {}),
+        },
         layout: normalizeWidgetLayout(type, layout ?? config?.layout),
     };
 
@@ -111,6 +174,15 @@ function buildMousePoints(seed, count = 40) {
     return points;
 }
 
+function buildScrollSamples(scrollY) {
+    const base = Date.now() - 30_000;
+    return [
+        { scrollX: 0, scrollY, timestamp: base },
+        { scrollX: 0, scrollY: scrollY + 40, timestamp: base + 5_000 },
+        { scrollX: 0, scrollY: scrollY + 80, timestamp: base + 10_000 },
+    ];
+}
+
 async function main() {
     const { connectMongo } = require('../lib/mongo');
     const { registerMongoSyncHooks } = require('../lib/mongo-sync');
@@ -133,6 +205,9 @@ async function main() {
     }
 
     console.log(`Seeding application #${applicationId} (${application.name ?? application.appId})`);
+
+    console.log('Cleanup');
+    await cleanupSeedData(Event, Session);
 
     console.log('Tags');
     const buyForm = await ensureTag(Tag, {
@@ -167,7 +242,7 @@ async function main() {
             startedAt: hoursAgo(36 - i),
             metadata: {
                 seed: true,
-                sdkSessionId: `seed-${applicationId}-${Date.now()}-${i}`,
+                sdkSessionId: `seed-${applicationId}-${i}`,
             },
         });
         sessions.push(session);
@@ -198,7 +273,98 @@ async function main() {
         });
     }
 
-    // Funnel: all sessions hit landing; ~75% checkout; ~40% purchase
+    console.log('Pageview events (breakdown widgets)');
+    let pageviewCount = 0;
+    for (let i = 0; i < sessions.length; i += 1) {
+        const session = sessions[i];
+        const pagesForSession = i % 3 === 0
+            ? PAGES
+            : [pick(PAGES, i), pick(PAGES, i + 1)];
+
+        for (let j = 0; j < pagesForSession.length; j += 1) {
+            const page = pagesForSession[j];
+            const createdAt = hoursAgo(28 - i * 2 - j);
+            await Event.create({
+                type: 'pageview',
+                payload: {
+                    url: page.url,
+                    title: page.title,
+                    referrer: pick(REFERRERS, i + j),
+                    viewport: VIEWPORT,
+                    docSize: DOC_SIZE,
+                },
+                metadata: { seed: true },
+                applicationId,
+                sessionId: session.id,
+                tagId: buyForm.id,
+                createdAt,
+                updatedAt: createdAt,
+            });
+            pageviewCount += 1;
+        }
+    }
+    console.log(`  created ${pageviewCount} pageviews`);
+
+    console.log('Scroll events (scroll_depth widget)');
+    let scrollCount = 0;
+    for (let i = 0; i < sessions.length; i += 1) {
+        const session = sessions[i];
+        const profile = pick(SCROLL_PROFILES, i);
+        const page = pick(PAGES, i);
+        const createdAt = hoursAgo(24 - i * 2);
+
+        await Event.create({
+            type: 'scroll',
+            payload: {
+                url: page.url,
+                samples: buildScrollSamples(profile.scrollY),
+                docSize: DOC_SIZE,
+                viewport: VIEWPORT,
+            },
+            metadata: { seed: true, depthBand: profile.label },
+            applicationId,
+            sessionId: session.id,
+            tagId: buyForm.id,
+            createdAt,
+            updatedAt: createdAt,
+        });
+        scrollCount += 1;
+    }
+    console.log(`  created ${scrollCount} scroll batches`);
+
+    console.log('Click events');
+    let clickCount = 0;
+    for (let i = 0; i < 10; i += 1) {
+        const session = sessions[i % sessions.length];
+        const page = pick(PAGES, i);
+        const createdAt = hoursAgo(20 - i);
+
+        await Event.create({
+            type: 'click',
+            payload: {
+                url: page.url,
+                items: [
+                    {
+                        x: 120 + (i % 5) * 60,
+                        y: 240 + (i % 4) * 30,
+                        selector: 'button.cta',
+                        timestamp: createdAt.getTime(),
+                    },
+                ],
+                docSize: DOC_SIZE,
+                viewport: VIEWPORT,
+            },
+            metadata: { seed: true },
+            applicationId,
+            sessionId: session.id,
+            tagId: buyForm.id,
+            createdAt,
+            updatedAt: createdAt,
+        });
+        clickCount += 1;
+    }
+    console.log(`  created ${clickCount} click batches`);
+
     console.log('Funnel step events (landing → checkout → purchase)');
     let funnelEvents = 0;
     for (let i = 0; i < sessions.length; i += 1) {
@@ -217,7 +383,7 @@ async function main() {
         });
         funnelEvents += 1;
 
-        if (i % 4 === 3) continue; // drop before checkout
+        if (i % 4 === 3) continue;
 
         const t1 = new Date(t0.getTime() + 15 * 60 * 1000);
         await Event.create({
@@ -232,7 +398,7 @@ async function main() {
         });
         funnelEvents += 1;
 
-        if (i % 5 === 0 || i % 5 === 1) continue; // drop before purchase
+        if (i % 5 === 0 || i % 5 === 1) continue;
 
         const t2 = new Date(t1.getTime() + 20 * 60 * 1000);
         await Event.create({
@@ -253,15 +419,15 @@ async function main() {
     let mouseBatches = 0;
     for (let i = 0; i < 8; i += 1) {
         const session = sessions[i % sessions.length];
-        const url = pick(PAGES, i);
+        const page = pick(PAGES, i);
         const createdAt = hoursAgo(i * 3 + 1);
         await Event.create({
             type: 'mousemove',
             payload: {
-                url,
+                url: page.url,
                 points: buildMousePoints(i, 50),
-                docSize: { width: 1440, height: 2200 },
-                viewport: { width: 1440, height: 900, dpr: 1 },
+                docSize: DOC_SIZE,
+                viewport: VIEWPORT,
             },
             metadata: { seed: true },
             applicationId,
@@ -275,20 +441,20 @@ async function main() {
     console.log(`  created ${mouseBatches} mousemove batches`);
 
     console.log('Page snapshots (heatmap background)');
-    for (const url of PAGES) {
+    for (const page of PAGES) {
         await PageSnapshot.findOneAndUpdate(
-            { applicationId, url },
+            { applicationId, url: page.url },
             {
                 $set: {
                     image: TINY_JPEG,
-                    width: 1440,
-                    height: 900,
+                    width: VIEWPORT.width,
+                    height: VIEWPORT.height,
                     capturedAt: new Date(),
                 },
             },
             { upsert: true },
         );
-        console.log(`  = snapshot ${url}`);
+        console.log(`  = snapshot ${page.url}`);
     }
 
     console.log('Sample widgets');
@@ -296,19 +462,18 @@ async function main() {
         type: 'events',
         title: '[seed] Events KPI — buyForm',
         position: 0,
-        layout: { x: 0, y: 0, w: 4, h: 3 },
+        layout: { x: 0, y: 0, w: 4, h: 4 },
         config: {
             tagId: buyForm.id,
             visualization: 'nombre',
             series: [{ name: 'All', filters: [] }],
-            timeRange: { from: null, to: null, step: '1h' },
             metric: 'count',
         },
     });
 
     await ensureWidget(Widget, {
         type: 'events',
-        title: '[seed] Events comparison — browser',
+        title: '[seed] Events bar — browser',
         position: 1,
         layout: { x: 4, y: 0, w: 4, h: 4 },
         config: {
@@ -318,14 +483,13 @@ async function main() {
                 { name: 'Chrome', filters: [{ key: 'browser', op: 'eq', value: 'chrome' }] },
                 { name: 'Firefox', filters: [{ key: 'browser', op: 'eq', value: 'firefox' }] },
             ],
-            timeRange: { from: null, to: null, step: '1h' },
             metric: 'count',
         },
     });
 
     await ensureWidget(Widget, {
         type: 'events',
-        title: '[seed] Events timeseries — buyForm',
+        title: '[seed] Events line — buyForm',
         position: 2,
         layout: { x: 8, y: 0, w: 4, h: 4 },
         config: {
@@ -335,11 +499,70 @@ async function main() {
                 { name: 'All', filters: [] },
                 { name: 'Pro plan', filters: [{ key: 'plan', op: 'eq', value: 'pro' }] },
             ],
-            timeRange: {
-                from: new Date(Date.now() - 2 * DAY_MS).toISOString(),
-                to: null,
-                step: '1h',
-            },
+            timeRange: { ...SLIDING_RANGE, step: '1h' },
+            metric: 'count',
+        },
+    });
+
+    await ensureWidget(Widget, {
+        type: 'events',
+        title: '[seed] Events pie — sessions by plan',
+        position: 3,
+        layout: { x: 0, y: 4, w: 4, h: 4 },
+        config: {
+            tagId: buyForm.id,
+            visualization: 'pie',
+            series: [
+                { name: 'Free', filters: [{ key: 'plan', op: 'eq', value: 'free' }] },
+                { name: 'Pro', filters: [{ key: 'plan', op: 'eq', value: 'pro' }] },
+                { name: 'Enterprise', filters: [{ key: 'plan', op: 'eq', value: 'enterprise' }] },
+            ],
+            metric: 'sessions',
+        },
+    });
+
+    await ensureWidget(Widget, {
+        type: 'events',
+        title: '[seed] Events activity — buyForm',
+        position: 4,
+        layout: { x: 4, y: 4, w: 4, h: 4 },
+        config: {
+            tagId: buyForm.id,
+            visualization: 'activity',
+            series: [{ name: 'All', filters: [] }],
+            timeRange: { ...SLIDING_RANGE, step: '1d' },
+            metric: 'count',
+        },
+    });
+
+    await ensureWidget(Widget, {
+        type: 'breakdown',
+        title: '[seed] Breakdown — top pages',
+        position: 5,
+        layout: { x: 8, y: 4, w: 4, h: 5 },
+        config: {
+            filters: { groupBy: 'url' },
+            metric: 'count',
+        },
+    });
+
+    await ensureWidget(Widget, {
+        type: 'breakdown',
+        title: '[seed] Breakdown — referrers',
+        position: 6,
+        layout: { x: 0, y: 8, w: 6, h: 5 },
+        config: {
+            filters: { groupBy: 'referrer' },
+            metric: 'count',
+        },
+    });
+
+    await ensureWidget(Widget, {
+        type: 'scroll_depth',
+        title: '[seed] Scroll depth',
+        position: 7,
+        layout: { x: 6, y: 8, w: 6, h: 5 },
+        config: {
             metric: 'count',
         },
     });
@@ -347,11 +570,10 @@ async function main() {
     await ensureWidget(Widget, {
         type: 'funnel',
         title: '[seed] Funnel — Checkout',
-        position: 3,
-        layout: { x: 0, y: 3, w: 12, h: 4 },
+        position: 8,
+        layout: { x: 0, y: 13, w: 12, h: 5 },
         config: {
             tunnelId: tunnel.id,
-            timeRange: { from: null, to: null, step: '1h' },
             metric: 'count',
         },
     });
@@ -359,21 +581,24 @@ async function main() {
     await ensureWidget(Widget, {
         type: 'mouse_heatmap',
         title: '[seed] Mouse heatmap',
-        position: 4,
-        layout: { x: 0, y: 7, w: 12, h: 5 },
+        position: 9,
+        layout: { x: 0, y: 18, w: 12, h: 6 },
         config: {
-            mouse: { period: '7d', page: PAGES[0] },
-            timeRange: { from: null, to: null, step: '1h' },
+            mouse: { period: '7d', page: PAGES[0].url },
             metric: 'count',
         },
     });
 
     console.log('\nDone. Open the dashboard for this application.');
+    console.log('Widgets seeded:');
+    console.log('  - Events: nombre, bar, line, pie (sessions), activity');
+    console.log('  - Breakdown: top pages + referrers (pageview events)');
+    console.log('  - Scroll depth: 4 depth bands across sessions');
+    console.log('  - Funnel: tunnel "Checkout funnel"');
+    console.log('  - Mouse heatmap: example.com pages');
     console.log('Tips:');
-    console.log('  - Events KPI / comparison / timeseries → tag buyForm + metadata filters');
-    console.log('  - Funnel → tunnel "Checkout funnel"');
-    console.log('  - Mouse heatmap → pages example.com (+ /pricing)');
-    console.log('  - Filter examples: browser eq chrome | plan eq pro | loadMs gt 200');
+    console.log('  - Re-run is idempotent (cleans previous seed sessions/events first)');
+    console.log('  - Filter examples on events: browser eq chrome | plan eq pro | loadMs gt 200');
 
     await connection.close();
     process.exit(0);

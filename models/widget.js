@@ -1,7 +1,7 @@
 const { Model, DataTypes } = require('sequelize');
 const connection = require('../lib/db');
 
-const WIDGET_TYPES = ['events', 'mouse_heatmap', 'funnel'];
+const WIDGET_TYPES = ['events', 'mouse_heatmap', 'funnel', 'breakdown', 'scroll_depth'];
 const WIDGET_METRICS = ['count', 'sessions', 'share', 'rate'];
 
 const defaultConfig = {
