@@ -70,7 +70,7 @@ const router = createCrudRouter({
         create: checkAuth(),
         put: [checkAuth(), requireApplicationRole('admin')],
         patch: [checkAuth(), requireApplicationRole('admin')],
-        delete: [checkAuth(), requireApplicationRole('admin')],
+        delete: [checkAuth(), requireApplicationRole('owner')],
     },
     allowedFields: {
         create: ['name', 'allowedUrls'],
