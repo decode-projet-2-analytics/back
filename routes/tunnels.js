@@ -2,7 +2,12 @@ const createCrudRouter = require('../lib/create-crud-router');
 const Tunnel = require('../models/tunnel');
 const Tag = require('../models/tag');
 const checkAuth = require('../middlewares/check-auth');
-const { ownershipScope, assertApplicationOwnership } = require('../lib/utils/ownership-scope');
+const { assertApplicationRole } = require('../lib/application-access');
+const {
+    ownershipScope,
+    assertResourceApplicationRole,
+} = require('../lib/utils/ownership-scope');
+const { RESOURCE_WRITE_ROLES } = require('../lib/application-resource-policy');
 
 async function assertTagIdsBelongToApplication(tagIds, applicationId) {
     const ids = Array.isArray(tagIds) ? tagIds : [];
@@ -28,6 +33,7 @@ module.exports = createCrudRouter({
     model: Tunnel,
     auth: checkAuth(),
     scope: ownershipScope,
+    methods: ['list', 'get', 'create', 'patch', 'delete'],
     allowedFields: {
         create: ['name', 'tagIds', 'applicationId'],
         patch: ['name', 'tagIds'],
@@ -35,12 +41,19 @@ module.exports = createCrudRouter({
     queryFields: ['applicationId'],
     hooks: {
         beforeCreate: async (req, body) => {
-            await assertApplicationOwnership(req, body.applicationId);
+            await assertApplicationRole(req, body.applicationId, RESOURCE_WRITE_ROLES.tunnels.create);
             body.name = String(body.name ?? '').trim();
             await assertTagIdsBelongToApplication(body.tagIds, body.applicationId);
             return body;
         },
         beforePatch: async (req, body) => {
+            await assertResourceApplicationRole(
+                req,
+                Tunnel,
+                req.params.id,
+                RESOURCE_WRITE_ROLES.tunnels.patch,
+                'Tunnel not found',
+            );
             if (body.name !== undefined) {
                 body.name = String(body.name).trim();
             }
@@ -56,6 +69,15 @@ module.exports = createCrudRouter({
                 await assertTagIdsBelongToApplication(body.tagIds, tunnel.applicationId);
             }
             return body;
+        },
+        beforeDelete: async (req) => {
+            await assertResourceApplicationRole(
+                req,
+                Tunnel,
+                req.params.id,
+                RESOURCE_WRITE_ROLES.tunnels.delete,
+                'Tunnel not found',
+            );
         },
     },
 });

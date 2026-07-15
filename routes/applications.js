@@ -8,6 +8,7 @@ const User = require('../models/user');
 const checkAuth = require('../middlewares/check-auth');
 const {
     accessibleApplicationIdWhere,
+    applicationListScope,
     assertApplicationRole,
     getApplicationRole,
 } = require('../lib/application-access');
@@ -17,14 +18,16 @@ const {
     buildInvitationExpiresAt,
 } = require('../lib/team-invitations');
 const { sendTeamInvitationEmail } = require('../lib/mail');
+const { validateTeamRole } = require('../lib/application-team-roles');
 
-const TEAM_ROLES = ['admin', 'member', 'viewer'];
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const scope = (req) => accessibleApplicationIdWhere(req.user);
+const listScope = (req) => applicationListScope(req.user);
 
-function validateTeamRole(role) {
-    return TEAM_ROLES.includes(role) ? role : null;
+function denyGlobalAdminDetails(req, res, next) {
+    if (req.user?.role === 'Admin') return res.sendStatus(403);
+    return next();
 }
 
 function buildAcceptUrl(token) {
@@ -43,7 +46,11 @@ function requireApplicationRole(requiredRole) {
 }
 
 async function assertCanCreateApplication(req) {
-    if (req.user.role === 'Admin') return;
+    if (req.user.role === 'Admin') {
+        const error = new Error('Global admins must impersonate a webmaster to create applications');
+        error.status = 403;
+        throw error;
+    }
 
     const [ownedCount, membershipCount] = await Promise.all([
         Application.count({ where: { ownerId: req.user.id } }),
@@ -66,7 +73,7 @@ const router = createCrudRouter({
     model: Application,
     auth: {
         list: checkAuth(),
-        get: checkAuth(),
+        get: [checkAuth(), denyGlobalAdminDetails],
         create: checkAuth(),
         put: [checkAuth(), requireApplicationRole('admin')],
         patch: [checkAuth(), requireApplicationRole('admin')],
@@ -79,6 +86,7 @@ const router = createCrudRouter({
     },
     queryFields: ['ownerId', 'name', 'allowedUrls'],
     scope,
+    listScope,
     hooks: {
         beforeCreate: async (req, body) => {
             await assertCanCreateApplication(req);
@@ -91,12 +99,20 @@ const router = createCrudRouter({
             await assertApplicationRole(req, req.params.id, 'admin');
             return body;
         },
+        listOptions: () => ({
+            include: [{
+                model: User,
+                as: 'owner',
+                attributes: ['id', 'email', 'firstname', 'lastname', 'companyName'],
+            }],
+            order: [['createdAt', 'DESC']],
+        }),
     },
 });
 
 router.get('/:id/team', checkAuth(), async (req, res, next) => {
     try {
-        await assertApplicationRole(req, req.params.id, 'viewer');
+        await assertApplicationRole(req, req.params.id, 'member');
 
         const application = await Application.findByPk(req.params.id, {
             include: [
@@ -146,6 +162,7 @@ router.get('/:id/team', checkAuth(), async (req, res, next) => {
 
 router.get('/:id/role', checkAuth(), async (req, res, next) => {
     try {
+        if (req.user?.role === 'Admin') return res.sendStatus(403);
         const role = await getApplicationRole(req.user, req.params.id);
         if (!role) return res.sendStatus(404);
         return res.json({ role });
