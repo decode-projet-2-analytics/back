@@ -16,7 +16,7 @@ ApplicationInvitation.init({
         },
     },
     role: {
-        type: DataTypes.ENUM('admin', 'member', 'viewer'),
+        type: DataTypes.ENUM('admin', 'member'),
         allowNull: false,
         defaultValue: 'member',
     },

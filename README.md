@@ -111,7 +111,7 @@ Un utilisateur invite peut creer son compte depuis un lien d'invitation d'equipe
 - Si le token est valide, non expire, et correspond a l'email inscrit :
   - le compte est cree avec `status = validated` ;
   - l'invitation passe en `accepted` ;
-  - une entree `ApplicationMember` est creee avec le role invite (`admin`, `member` ou `viewer`).
+  - une entree `ApplicationMember` est creee avec le role invite (`admin` ou `member`).
 - Sans invitation, l'inscription garde le fonctionnement normal : compte `Webmaster` en `pending`, validation admin requise.
 - Le role global utilisateur reste `Webmaster` pour l'acces au backoffice ; les droits fins sont portes par le role applicatif.
 
@@ -139,12 +139,12 @@ Routes principales :
 
 | Route | Droit applicatif | Description |
 |-------|------------------|-------------|
-| `GET /applications` | `viewer` ou plus | Liste les applications accessibles a l'utilisateur |
-| `GET /applications/:id` | `viewer` ou plus | Detail d'une application accessible |
+| `GET /applications` | authentifie | Liste les applications accessibles ; l'Admin global voit l'inventaire complet |
+| `GET /applications/:id` | `member` ou plus | Detail d'une application accessible ; interdit a l'Admin global sans impersonation |
 | `PATCH /applications/:id` | `admin` ou `owner` | Modifie le nom et les URLs autorisees |
 | `POST /applications/:id/secret` | `admin` ou `owner` | Genere un nouveau `APP_SECRET` |
 | `DELETE /applications/:id/secret` | `admin` ou `owner` | Revoque le `APP_SECRET` |
-| `GET /applications/:id/role` | `viewer` ou plus | Retourne le role applicatif courant |
+| `GET /applications/:id/role` | `member` ou plus | Retourne le role applicatif courant |
 
 Le SDK frontend s'authentifie avec `APP_ID` et applique les regles CORS. Le SDK backend envoie `APP_ID` + `APP_SECRET` via les headers `x-app-id` et `x-app-secret`; le secret est compare avec le hash stocke.
 
@@ -174,16 +174,15 @@ Les roles applicatifs sont :
 
 | Role | Capacites |
 |------|-----------|
-| `owner` | Proprietaire de l'application, tous droits |
-| `admin` | Gere les credentials, l'equipe, les widgets et la configuration |
-| `member` | Consulte les donnees et widgets de l'application |
-| `viewer` | Acces lecture minimal |
+| `owner` | Tous les droits, dont suppression de l'application et modification/suppression des sessions |
+| `admin` | Gere configuration, credentials, equipe, tags, tunnels et widgets |
+| `member` | Acces strictement en lecture aux donnees de l'application |
 
 Routes d'equipe :
 
 | Route | Droit applicatif | Description |
 |-------|------------------|-------------|
-| `GET /applications/:id/team` | `viewer` ou plus | Liste le proprietaire et les membres actifs |
+| `GET /applications/:id/team` | `member` ou plus | Liste le proprietaire et les membres actifs |
 | `GET /applications/:id/invitations` | `admin` ou `owner` | Liste les invitations en attente |
 | `POST /applications/:id/invitations` | `admin` ou `owner` | Invite un ou plusieurs emails |
 | `PATCH /applications/:id/members/:memberId` | `admin` ou `owner` | Change le role d'un membre |
@@ -191,7 +190,7 @@ Routes d'equipe :
 | `DELETE /applications/:id/invitations/:invitationId` | `admin` ou `owner` | Annule une invitation |
 | `POST /team-invitations/:token/accept` | utilisateur connecte | Accepte une invitation pour son email |
 
-Les membres simples ne peuvent pas inviter, modifier l'equipe, creer une application, ni creer/modifier/supprimer des widgets. Ces restrictions sont appliquees cote API, pas seulement dans l'interface.
+Les membres simples sont en lecture seule. Les ecritures de configuration, credentials, equipe, tags, tunnels et widgets exigent `admin` ou `owner`. Seul l'owner peut supprimer l'application ou modifier/supprimer ses sessions. La creation et l'alimentation des sessions et evenements restent reservees au SDK. Ces restrictions sont appliquees cote API, pas seulement dans l'interface.
 
 ## Scripts
 

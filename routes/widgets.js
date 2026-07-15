@@ -6,6 +6,7 @@ const { assertApplicationRole } = require('../lib/application-access');
 const { getWidgetData } = require('../lib/widgets/get-data');
 const { pushWidget } = require('../lib/socket/analytics/push');
 const { normalizeLayout, normalizeWidgetLayout } = require('../lib/widgets/layout');
+const { RESOURCE_WRITE_ROLES } = require('../lib/application-resource-policy');
 
 async function assertWidgetApplicationRole(req, widgetId, requiredRole) {
     const widget = await Widget.findOne({
@@ -26,6 +27,7 @@ module.exports = createCrudRouter({
     model: Widget,
     auth: checkAuth(),
     scope: ownershipScope,
+    methods: ['list', 'get', 'create', 'patch', 'delete'],
     allowedFields: {
         create: ['type', 'title', 'config', 'applicationId', 'position'],
         patch: ['type', 'title', 'config', 'position'],
@@ -40,7 +42,7 @@ module.exports = createCrudRouter({
     ],
     hooks: {
         beforeCreate: async (req, body) => {
-            await assertApplicationRole(req, body.applicationId, 'admin');
+            await assertApplicationRole(req, body.applicationId, RESOURCE_WRITE_ROLES.widgets.create);
 
             if (body.position === undefined || body.position === null) {
                 const latest = await Widget.findOne({
@@ -57,6 +59,7 @@ module.exports = createCrudRouter({
             return body;
         },
         beforePatch: async (req, body) => {
+            await assertWidgetApplicationRole(req, req.params.id, RESOURCE_WRITE_ROLES.widgets.patch);
             if (body.config !== undefined) {
                 body.config = body.config || {};
                 if (body.config.layout !== undefined) {
@@ -64,6 +67,9 @@ module.exports = createCrudRouter({
                 }
             }
             return body;
+        },
+        beforeDelete: async (req) => {
+            await assertWidgetApplicationRole(req, req.params.id, RESOURCE_WRITE_ROLES.widgets.delete);
         },
         listOptions: (req) => ({
             order: [['position', 'ASC'], ['id', 'ASC']],
