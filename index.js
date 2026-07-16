@@ -6,8 +6,7 @@ const v1Router = require('./routes/v1');
 const { connectMongo } = require('./lib/mongo');
 const { registerMongoSyncHooks } = require('./lib/mongo-sync');
 const { initSocket } = require('./lib/socket');
-const { on, ANALYTICS_INGESTED } = require('./lib/utils/events-bus');
-const { scheduleAnalyticsPush } = require('./lib/socket/analytics/push');
+const { startSyncEventsWatcher } = require('./lib/socket/analytics/sync-events-watcher');
 
 require('./models/associations');
 
@@ -49,7 +48,7 @@ async function bootstrap() {
 
     const server = http.createServer(app);
     initSocket(server, { corsOrigin: FRONTEND_URL });
-    on(ANALYTICS_INGESTED, scheduleAnalyticsPush);
+    startSyncEventsWatcher();
 
     server.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);

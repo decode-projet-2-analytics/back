@@ -5,7 +5,6 @@ const sdkAuth = require('../middlewares/sdk-auth');
 const Session = require('../models/session');
 const Tag = require('../models/tag');
 const { ownershipScope } = require('../lib/utils/ownership-scope');
-const { emit, ANALYTICS_INGESTED } = require('../lib/utils/events-bus');
 const Event = require('../models/event');
 
 // Note: every created event is automatically cloned to MongoDB (the
@@ -84,9 +83,6 @@ const router = createCrudRouter({
         beforeCreate: async (req, body) => {
             await assertEventRelations(req, body);
             return body;
-        },
-        afterCreate: async (req, item) => {
-            emit(ANALYTICS_INGESTED, item.applicationId);
         },
         listOptions: () => ({
             order: [['createdAt', 'DESC'], ['id', 'DESC']],

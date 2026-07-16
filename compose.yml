@@ -12,7 +12,7 @@ services:
         NODE_ENV: development
         PORT: "3000"
         DATABASE_URL: postgres://postgres:postgres@db/decode
-        MONGO_URL: mongodb://root:password@mongo:27017/decode?authSource=admin
+        MONGO_URL: mongodb://mongo:27017/decode?replicaSet=rs0
         JWT_SECRET: myVeryVeryStrongSecret!
         FRONTEND_URL: "http://localhost:3000"
         SMTP_HOST: smtp.gmail.com
@@ -25,8 +25,10 @@ services:
         MAIL_FROM: ${MAIL_FROM:-}
         MAIL_TEST_TO: ${MAIL_TEST_TO:-}
       depends_on:
-        - db
-        - mongo
+        db:
+          condition: service_started
+        mongo:
+          condition: service_healthy
 
     db:
       image: postgres:17-alpine
@@ -41,13 +43,19 @@ services:
 
     mongo:
       image: mongo
+      command: ["--replSet", "rs0", "--bind_ip_all"]
       ports:
         - "127.0.0.1:27019:27017"
       volumes:
         - mongo-data:/data/db
-      environment:
-        MONGO_INITDB_ROOT_USERNAME: root
-        MONGO_INITDB_ROOT_PASSWORD: password
+      healthcheck:
+        test: >
+          mongosh --quiet --port 27017 --eval
+          "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+        interval: 5s
+        timeout: 30s
+        start_period: 5s
+        retries: 30
 
 volumes:
   db-data: {}
